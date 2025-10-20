@@ -1,121 +1,238 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>スコアボード表示システム（Web版）</title>
-  <style>
-    :root {
-      --bg: #f5f7fb;
-      --card: #ffffff;
-      --ink: #0f172a;
-      --muted: #64748b;
-      --accent: #2563eb;
-      --danger: #dc2626;
-    }
-    * { box-sizing: border-box; }
-    html, body { height: 100%; }
-    body {
-      margin: 0;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
-      background: var(--bg);
-      color: var(--ink);
-    }
-    .container { max-width: 1100px; margin: 24px auto; padding: 16px; }
-    .app { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
-    h1 { margin: 0 0 12px; font-size: 20px; letter-spacing: .02em; }
-    .btn { cursor: pointer; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
-    .btn:active { transform: translateY(1px); }
-    .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
-    .btn.danger { background: var(--danger); color: #fff; border-color: transparent; }
-    .btn.slim { padding: 4px 8px; font-size: 12px; }
-    .lights { display: flex; gap: 8px; align-items: center; margin-bottom: 8px; }
-    .light { width: 24px; height: 24px; border-radius: 50%; background: #e5e7eb; border: 1px solid #cbd5e1; }
-    .light.on.green { background: #22c55e; border-color: #16a34a; }
-    .light.on.yellow { background: #facc15; border-color: #eab308; }
-    .light.on.red { background: #ef4444; border-color: #dc2626; }
-    .stack { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-    .panel { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fff; margin-top: 12px; }
-  </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>スコアボード表示システム</title>
+<style>
+  :root {
+    --bg-dark: #0a0a0a;
+    --text-light: #f1f5f9;
+    --accent: #22c55e;
+    --danger: #ef4444;
+    --yellow: #facc15;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--bg-dark);
+    color: var(--text-light);
+    font-family: 'Segoe UI', 'Hiragino Kaku Gothic ProN', Meiryo, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+  }
+
+  /* 上半分：スコアボード表示 */
+  #display {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-bottom: 3px solid #222;
+  }
+
+  .team {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 24px;
+    font-size: 3rem;
+    margin: 10px 0;
+  }
+  .team-name {
+    width: 220px;
+    text-align: right;
+    font-weight: bold;
+  }
+  .score {
+    font-size: 4rem;
+    width: 120px;
+    text-align: center;
+  }
+
+  .lights {
+    display: flex;
+    gap: 10px;
+    justify-content: center;
+    margin-top: 16px;
+  }
+  .light {
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: #333;
+    border: 2px solid #555;
+  }
+  .on.green { background: var(--accent); border-color: #16a34a; }
+  .on.yellow { background: var(--yellow); border-color: #ca8a04; }
+  .on.red { background: var(--danger); border-color: #b91c1c; }
+
+  /* 下半分：操作コンソール */
+  #console {
+    background: #1e293b;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  h2 { margin: 0; font-size: 1.2rem; }
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    justify-content: center;
+  }
+  .btn {
+    background: #334155;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    padding: 10px 14px;
+    font-size: 1rem;
+    cursor: pointer;
+    transition: background 0.2s;
+  }
+  .btn:hover { background: #475569; }
+  .btn.primary { background: var(--accent); color: black; font-weight: bold; }
+  .btn.danger { background: var(--danger); }
+  .score-input {
+    width: 80px;
+    font-size: 1.2rem;
+    text-align: center;
+    border-radius: 6px;
+    border: none;
+  }
+
+  @media (max-width: 600px) {
+    .team-name { font-size: 1.2rem; width: 140px; }
+    .score { font-size: 2rem; width: 80px; }
+  }
+</style>
 </head>
 <body>
-  <div class="container">
-    <div class="app">
-      <h1>スコアボード表示システム（Web版）</h1>
+  <!-- 上半分：スコアボード -->
+  <div id="display">
+    <div class="team" id="teamA-row">
+      <div class="team-name" id="teamA-name">蒜山</div>
+      <div class="score" id="teamA-score">0</div>
+    </div>
+    <div class="team" id="teamB-row">
+      <div class="team-name" id="teamB-name">久世</div>
+      <div class="score" id="teamB-score">0</div>
+    </div>
 
-      <div class="panel">
-        <h2>S / B / O カウント</h2>
-        <div class="lights">
-          <span>B</span>
-          <div id="b1" class="light"></div>
-          <div id="b2" class="light"></div>
-          <div id="b3" class="light"></div>
-        </div>
-        <div class="lights">
-          <span>S</span>
-          <div id="s1" class="light"></div>
-          <div id="s2" class="light"></div>
-        </div>
-        <div class="lights">
-          <span>O</span>
-          <div id="o1" class="light"></div>
-          <div id="o2" class="light"></div>
-        </div>
-
-        <div class="stack" style="margin-top:10px;">
-          <button class="btn" id="incB">B＋</button>
-          <button class="btn" id="decB">B−</button>
-          <button class="btn" id="incS">S＋</button>
-          <button class="btn" id="decS">S−</button>
-          <button class="btn" id="incO">O＋</button>
-          <button class="btn" id="decO">O−</button>
-        </div>
-
-        <div class="stack" style="margin-top:10px;">
-          <button class="btn" id="clearSB">SBクリア（SとB）</button>
-          <button class="btn danger" id="clearAllSBO">SBO全リセット</button>
-        </div>
-      </div>
+    <div class="lights">
+      <div class="light" id="b1"></div>
+      <div class="light" id="b2"></div>
+      <div class="light" id="b3"></div>
+      <div class="light" id="s1"></div>
+      <div class="light" id="s2"></div>
+      <div class="light" id="o1"></div>
+      <div class="light" id="o2"></div>
     </div>
   </div>
 
-  <script>
-    const state = { counts: { s: 0, b: 0, o: 0 } };
+  <!-- 下半分：操作コンソール -->
+  <div id="console">
+    <h2>操作コンソール</h2>
+    <div class="controls">
+      <input id="teamANameInput" class="score-input" value="蒜山">
+      <button class="btn" id="incA">A＋</button>
+      <button class="btn" id="decA">A−</button>
 
-    function setLight(id, onClass, on) {
-      const el = document.getElementById(id);
-      el.className = "light" + (on ? ` on ${onClass}` : "");
-    }
+      <input id="teamBNameInput" class="score-input" value="久世">
+      <button class="btn" id="incB">B＋</button>
+      <button class="btn" id="decB">B−</button>
+    </div>
 
-    function render() {
-      setLight("b1", "yellow", state.counts.b >= 1);
-      setLight("b2", "yellow", state.counts.b >= 2);
-      setLight("b3", "yellow", state.counts.b >= 3);
-      setLight("s1", "green", state.counts.s >= 1);
-      setLight("s2", "green", state.counts.s >= 2);
-      setLight("o1", "red", state.counts.o >= 1);
-      setLight("o2", "red", state.counts.o >= 2);
-    }
+    <div class="controls">
+      <button class="btn" id="incBall">B＋</button>
+      <button class="btn" id="decBall">B−</button>
+      <button class="btn" id="incStrike">S＋</button>
+      <button class="btn" id="decStrike">S−</button>
+      <button class="btn" id="incOut">O＋</button>
+      <button class="btn" id="decOut">O−</button>
+    </div>
 
-    function incB() { state.counts.b = Math.min(3, state.counts.b + 1); render(); }
-    function decB() { state.counts.b = Math.max(0, state.counts.b - 1); render(); }
-    function incS() { state.counts.s = Math.min(2, state.counts.s + 1); render(); }
-    function decS() { state.counts.s = Math.max(0, state.counts.s - 1); render(); }
-    function incO() { state.counts.o = Math.min(2, state.counts.o + 1); render(); }
-    function decO() { state.counts.o = Math.max(0, state.counts.o - 1); render(); }
-    function clearSB() { state.counts.s = 0; state.counts.b = 0; render(); }
-    function clearAllSBO() { state.counts.s = 0; state.counts.b = 0; state.counts.o = 0; render(); }
+    <div class="controls">
+      <button class="btn" id="clearSB">SBクリア</button>
+      <button class="btn danger" id="clearAllSBO">SBO全リセット</button>
+      <button class="btn primary" id="resetGame">試合リセット</button>
+    </div>
+  </div>
 
-    document.getElementById("incB").onclick = incB;
-    document.getElementById("decB").onclick = decB;
-    document.getElementById("incS").onclick = incS;
-    document.getElementById("decS").onclick = decS;
-    document.getElementById("incO").onclick = incO;
-    document.getElementById("decO").onclick = decO;
-    document.getElementById("clearSB").onclick = clearSB;
-    document.getElementById("clearAllSBO").onclick = clearAllSBO;
+<script>
+  const state = {
+    teamA: { name: '蒜山', score: 0 },
+    teamB: { name: '久世', score: 0 },
+    counts: { b: 0, s: 0, o: 0 }
+  };
 
-    render();
-  </script>
+  // 更新
+  function render() {
+    document.getElementById("teamA-name").textContent = state.teamA.name;
+    document.getElementById("teamB-name").textContent = state.teamB.name;
+    document.getElementById("teamA-score").textContent = state.teamA.score;
+    document.getElementById("teamB-score").textContent = state.teamB.score;
+
+    setLight("b1", "yellow", state.counts.b >= 1);
+    setLight("b2", "yellow", state.counts.b >= 2);
+    setLight("b3", "yellow", state.counts.b >= 3);
+    setLight("s1", "green", state.counts.s >= 1);
+    setLight("s2", "green", state.counts.s >= 2);
+    setLight("o1", "red", state.counts.o >= 1);
+    setLight("o2", "red", state.counts.o >= 2);
+  }
+
+  function setLight(id, color, on) {
+    const el = document.getElementById(id);
+    el.className = "light" + (on ? ` on ${color}` : "");
+  }
+
+  // スコア制御
+  function incA() { state.teamA.score++; render(); }
+  function decA() { state.teamA.score = Math.max(0, state.teamA.score - 1); render(); }
+  function incB() { state.teamB.score++; render(); }
+  function decB() { state.teamB.score = Math.max(0, state.teamB.score - 1); render(); }
+
+  // SBO制御
+  function incBall() { state.counts.b = Math.min(3, state.counts.b + 1); render(); }
+  function decBall() { state.counts.b = Math.max(0, state.counts.b - 1); render(); }
+  function incStrike() { state.counts.s = Math.min(2, state.counts.s + 1); render(); }
+  function decStrike() { state.counts.s = Math.max(0, state.counts.s - 1); render(); }
+  function incOut() { state.counts.o = Math.min(2, state.counts.o + 1); render(); }
+  function decOut() { state.counts.o = Math.max(0, state.counts.o - 1); render(); }
+
+  function clearSB() { state.counts.s = 0; state.counts.b = 0; render(); }
+  function clearAllSBO() { state.counts.s = 0; state.counts.b = 0; state.counts.o = 0; render(); }
+  function resetGame() {
+    if (!confirm("試合をリセットしますか？")) return;
+    state.teamA.score = 0;
+    state.teamB.score = 0;
+    clearAllSBO();
+  }
+
+  // イベント登録
+  document.getElementById("incA").onclick = incA;
+  document.getElementById("decA").onclick = decA;
+  document.getElementById("incB").onclick = incB;
+  document.getElementById("decB").onclick = decB;
+  document.getElementById("incBall").onclick = incBall;
+  document.getElementById("decBall").onclick = decBall;
+  document.getElementById("incStrike").onclick = incStrike;
+  document.getElementById("decStrike").onclick = decStrike;
+  document.getElementById("incOut").onclick = incOut;
+  document.getElementById("decOut").onclick = decOut;
+  document.getElementById("clearSB").onclick = clearSB;
+  document.getElementById("clearAllSBO").onclick = clearAllSBO;
+  document.getElementById("resetGame").onclick = resetGame;
+
+  document.getElementById("teamANameInput").oninput = e => { state.teamA.name = e.target.value; render(); };
+  document.getElementById("teamBNameInput").oninput = e => { state.teamB.name = e.target.value; render(); };
+
+  render();
+</script>
 </body>
 </html>
