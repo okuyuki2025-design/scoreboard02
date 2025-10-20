@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>スコアボード表示システム（Web版）</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --ink: #0f172a;
+      --muted: #64748b;
+      --accent: #2563eb;
+      --danger: #dc2626;
+      --ok: #10b981;
+    }
+    * { box-sizing: border-box; }
+    html, body { height: 100%; }
+    body {
+      margin: 0; font-family: system-ui, -apple-system, Segoe UI, Roboto, "Hiragino Kaku Gothic ProN", Meiryo, sans-serif;
+      background: var(--bg); color: var(--ink);
+    }
+    .container { max-width: 1100px; margin: 24px auto; padding: 16px; }
+    .app { background: var(--card); border-radius: 16px; padding: 20px; box-shadow: 0 10px 30px rgba(15,23,42,.08); }
+    h1 { margin: 0 0 12px; font-size: 20px; letter-spacing: .02em; }
+    .row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .panel { border: 1px solid #e5e7eb; border-radius: 12px; padding: 14px; background: #fff; }
+    .panel h2 { margin: 0 0 8px; font-size: 14px; color: var(--muted); }
+
+    /* Scoreboard table */
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border: 1px solid #e5e7eb; text-align: center; padding: 6px 4px; }
+    thead th { background: #f8fafc; font-weight: 600; }
+    .team-name input { width: 100%; border: none; background: transparent; font-weight: 600; padding: 6px; }
+    .score-cell { position: relative; min-width: 32px; }
+    .score-controls { display: flex; gap: 6px; justify-content: center; margin-top: 6px; }
+    .btn { cursor: pointer; border: 1px solid #e5e7eb; background: #fff; border-radius: 8px; padding: 8px 10px; font-size: 14px; }
+    .btn:active { transform: translateY(1px); }
+    .btn.primary { background: var(--accent); color: #fff; border-color: transparent; }
+    .btn.ghost { background: #fff; }
+    .btn.danger { background: var(--danger); color: #fff; border-color: transparent; }
+    .btn.slim { padding: 4px 8px; font-size: 12px; }
+    .stack { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+    .stack-col { display: grid; gap: 8px; }
+    .grid-3 { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; }
+    .lights { display: flex; gap: 6px; align-items: center; }
+    .light { width: 18px; height: 18px; border-radius: 999px; background: #e5e7eb; border: 1px solid #cbd5e1; }
+    .light.on.green { background: #22c55e; border-color: #16a34a; }
+    .light.on.yellow { background: #f59e0b; border-color: #d97706; }
+    .light.on.red { background: #ef4444; border-color: #dc2626; }
+    .tag { font-size: 12px; color: var(--muted); }
+    .section-title { font-weight: 600; color: var(--muted); letter-spacing: .04em; font-size: 12px; }
+
+    .batting { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .bat-strip { display: grid; grid-template-columns: repeat(10, 1fr); gap: 6px; align-items: center; }
+    .bat-ball { width: 22px; height: 22px; border-radius: 999px; background: #111827; border: 1px solid #111827; }
+    .bat-ball.current { background: #ef4444; border-color: #b91c1c; }
+
+    .muted { color: var(--muted); }
+    .divider { height: 1px; background: #e5e7eb; margin: 10px 0; }
+
+    .top-on { outline: 2px solid var(--accent); outline-offset: 0; }
+
+    @media (max-width: 960px) { .row { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="app" id="app">
+      <h1>スコアボード表示システム（Web版）</h1>
+
+      <!-- Scoreboard -->
+      <div class="panel">
+        <h2>得点表</h2>
+        <div class="stack" style="justify-content: space-between; margin-bottom:8px">
+          <div class="stack">
+            <label class="stack"><input type="checkbox" id="attackToggle" checked> <span class="tag">攻撃表示（アクティブ側を強調）</span></label>
+            <label class="stack"> <span class="tag">先攻：</span>
+              <select id="firstAttack">
+                <option value="0">左側（上段）</option>
+                <option value="1">右側（下段）</option>
+              </select>
+            </label>
+          </div>
+          <div class="stack">
+            <button class="btn ghost slim" id="undoBtn">戻る（Undo）</button>
+            <button class="btn danger slim" id="resetBtn">全消去</button>
+          </div>
+        </div>
+
+        <table id="scoreTable" aria-label="scoreboard">
+          <thead>
+            <tr>
+              <th style="width:140px">TEAM</th>
+              <th>1</th><th>2</th><th>3</th><th>4</th><th>5</th><th>6</th><th>7</th><th>8</th><th>9</th><th>R</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr id="row-0">
+              <td class="team-name"><input id="team0" value="蒜山" aria-label="team 1 name"></td>
+              <td class="score-cell" data-team="0" data-inning="1"></td>
+              <td class="score-cell" data-team="0" data-inning="2"></td>
+              <td class="score-cell" data-team="0" data-inning="3"></td>
+              <td class="score-cell" data-team="0" data-inning="4"></td>
+              <td class="score-cell" data-team="0" data-inning="5"></td>
+              <td class="score-cell" data-team="0" data-inning="6"></td>
+              <td class="score-cell" data-team="0" data-inning="7"></td>
+              <td class="score-cell" data-team="0" data-inning="8"></td>
+              <td class="score-cell" data-team="0" data-inning="9"></td>
+              <td id="total-0">0</td>
+            </tr>
+            <tr id="row-1">
+              <td class="team-name"><input id="team1" value="久世" aria-label="team 2 name"></td>
+              <td class="score-cell" data-team="1" data-inning="1"></td>
+              <td class="score-cell" data-team="1" data-inning="2"></td>
+              <td class="score-cell" data-team="1" data-inning="3"></td>
+              <td class="score-cell" data-team="1" data-inning="4"></td>
+              <td class="score-cell" data-team="1" data-inning="5"></td>
+              <td class="score-cell" data-team="1" data-inning="6"></td>
+              <td class="score-cell" data-team="1" data-inning="7"></td>
+              <td class="score-cell" data-team="1" data-inning="8"></td>
+              <td class="score-cell" data-team="1" data-inning="9"></td>
+              <td id="total-1">0</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="divider"></div>
+
+        <div class="stack" style="justify-content: space-between;">
+          <div class="stack">
+            <span class="section-title">現在のイニング</span>
+            <span id="inningLabel" style="font-weight:700">1回表</span>
+          </div>
+          <div class="stack">
+            <button class="btn" id="decRun">−1 点</button>
+            <button class="btn primary" id="incRun">＋1 点</button>
+            <button class="btn" id="changeSide">チェンジ</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Counts + Controls -->
+      <div class="row" style="margin-top:16px">
+        <div class="panel">
+          <h2>S / B / O（カウント）</h2>
+          <div class="grid-3">
+            <div class="stack-col">
+              <div class="lights"><span class="tag" style="width:24px">S</span>
+                <div class="light" id="s1"></div>
+                <div class="light" id="s2"></div>
+              </div>
+              <div class="stack">
+                <button class="btn slim" id="incS">S＋</button>
+                <button class="btn slim" id="decS">S−</button>
+              </div>
+            </div>
+            <div class="stack-col">
+              <div class="lights"><span class="tag" style="width:24px">B</span>
+                <div class="light" id="b1"></div>
+                <div class="light" id="b2"></div>
+                <div class="light" id="b3"></div>
+              </div>
+              <div class="stack">
+                <button class="btn slim" id="incB">B＋</button>
+                <button class="btn slim" id="decB">B−</button>
+              </div>
+            </div>
+            <div class="stack-col">
+              <div class="lights"><span class="tag" style="width:24px">O</span>
+                <div class="light" id="o1"></div>
+                <div class="light" id="o2"></div>
+              </div>
+              <div class="stack">
+                <button class="btn slim" id="incO">O＋</button>
+                <button class="btn slim" id="decO">O−</button>
+              </div>
+            </div>
+          </div>
+          <div class="stack" style="margin-top:8px">
+            <button class="btn ghost" id="clearSB">SBクリア</button>
+          </div>
+        </div>
+
+        <div class="panel">
+          <h2>打順（次の打者へ）</h2>
+          <div class="batting">
+            <div>
+              <div class="tag" style="margin-bottom:6px">上段チーム</div>
+              <div class="bat-strip" id="batTop"></div>
+              <div class="stack" style="margin-top:8px"><button class="btn slim" id="nextTop">次の打者へ（上段）</button></div>
+            </div>
+            <div>
+              <div class="tag" style="margin-bottom:6px">下段チーム</div>
+              <div class="bat-strip" id="batBottom"></div>
+              <div class="stack" style="margin-top:8px"><button class="btn slim" id="nextBottom">次の打者へ（下段）</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Save / Load -->
+      <div class="panel" style="margin-top:16px">
+        <h2>保存・読み込み</h2>
+        <div class="stack">
+          <button class="btn" id="saveBtn">試合結果の保存（ローカル）</button>
+          <button class="btn" id="loadBtn">読み込み</button>
+          <button class="btn" id="exportBtn">JSONエクスポート</button>
+          <input type="file" id="importFile" accept="application/json" style="display:none" />
+          <button class="btn" id="importBtn">JSONインポート</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ------------------ State ------------------
+    const defaultState = () => ({
+      teamNames: ["蒜山", "久世"],
+      scores: [Array(9).fill(0), Array(9).fill(0)],
+      inning: 1, // 1..9
+      topOfInning: true, // true: top (上段攻撃)
+      counts: { s: 0, b: 0, o: 0 },
+      batIndex: [0, 0], // 0..8
+      firstAttack: 0 // 0: top team first, 1: bottom team first
+    });
+
+    let state = defaultState();
+    const historyStack = [];
+
+    // Utility
+    function pushHistory() { historyStack.push(JSON.stringify(state)); if (historyStack.length > 200) historyStack.shift(); }
+    function undo() { if (!historyStack.length) return; state = JSON.parse(historyStack.pop()); render(); }
+
+    function total(team) { return state.scores[team].reduce((a,b)=>a+b,0); }
+
+    function activeTeamIdx() {
+      // Normalize: firstAttack determines who bats first at 1回表
+      const topAttacks = (state.firstAttack === 0);
+      const isTopNow = state.topOfInning;
+      // If top team is designated first, then when topOfInning true -> team 0 bats
+      // Otherwise, invert
+      return (topAttacks ? (isTopNow ? 0 : 1) : (isTopNow ? 1 : 0));
+    }
+
+    // ------------------ Render ------------------
+    function renderScoreCells() {
+      document.querySelectorAll('.score-cell').forEach(td => {
+        const t = +td.dataset.team - 0;
+        const inn = +td.dataset.inning - 1;
+        const val = state.scores[t][inn] ?? 0;
+        td.innerHTML = `<div>${val}</div>`;
+      });
+      document.getElementById('total-0').textContent = total(0);
+      document.getElementById('total-1').textContent = total(1);
+
+      // Highlight batting row if attack display is on
+      const highlight = document.getElementById('attackToggle').checked;
+      document.getElementById('row-0').classList.toggle('top-on', highlight && activeTeamIdx() === 0);
+      document.getElementById('row-1').classList.toggle('top-on', highlight && activeTeamIdx() === 1);
+    }
+
+    function renderInningLabel() {
+      const num = state.inning;
+      const mark = state.topOfInning ? '表' : '裏';
+      document.getElementById('inningLabel').textContent = `${num}回${mark}`;
+    }
+
+    function setLight(id, onClass, on) {
+      const el = document.getElementById(id);
+      el.className = 'light' + (on ? ` on ${onClass}` : '');
+    }
+
+    function renderCounts() {
+      setLight('s1','green', state.counts.s >= 1);
+      setLight('s2','green', state.counts.s >= 2);
+      setLight('b1','yellow', state.counts.b >= 1);
+      setLight('b2','yellow', state.counts.b >= 2);
+      setLight('b3','yellow', state.counts.b >= 3);
+      setLight('o1','red', state.counts.o >= 1);
+      setLight('o2','red', state.counts.o >= 2);
+    }
+
+    function renderTeamNames() {
+      document.getElementById('team0').value = state.teamNames[0];
+      document.getElementById('team1').value = state.teamNames[1];
+    }
+
+    function renderBattingStrips() {
+      const make = (idx) => {
+        const wrap = document.getElementById(idx === 0 ? 'batTop' : 'batBottom');
+        wrap.innerHTML = '';
+        for (let i=0;i<9;i++) {
+          const dot = document.createElement('div');
+          dot.className = 'bat-ball' + (state.batIndex[idx] === i ? ' current' : '');
+          dot.title = `${i+1}番打者`;
+          wrap.appendChild(dot);
+        }
+        const ten = document.createElement('span'); ten.className='muted'; ten.textContent = '1〜9';
+        wrap.appendChild(ten);
+      };
+      make(0); make(1);
+    }
+
+    function render() {
+      renderScoreCells();
+      renderInningLabel();
+      renderCounts();
+      renderTeamNames();
+      renderBattingStrips();
+      document.getElementById('firstAttack').value = String(state.firstAttack);
+      localStorage.setItem('scoreboard-web-state', JSON.stringify(state));
+    }
+
+    // ------------------ Actions ------------------
+    function incRun() {
+      pushHistory();
+      const team = activeTeamIdx();
+      const inn = state.inning - 1;
+      state.scores[team][inn] = (state.scores[team][inn] || 0) + 1;
+      render();
+    }
+    function decRun() {
+      pushHistory();
+      const team = activeTeamIdx();
+      const inn = state.inning - 1;
+      state.scores[team][inn] = Math.max(0, (state.scores[team][inn] || 0) - 1);
+      render();
+    }
+
+    function changeSide() {
+      pushHistory();
+      // on 3 outs, auto clear S/B and proceed
+      state.topOfInning = !state.topOfInning;
+      if (state.topOfInning) state.inning = Math.min(9, state.inning + 1);
+      state.counts.s = 0; state.counts.b = 0; // clear only SB, keep outs unless inning changed
+      state.counts.o = 0; // reset outs on side change
+      render();
+    }
+
+    function clearSB() { pushHistory(); state.counts.s = 0; state.counts.b = 0; render(); }
+
+    function incS(){ pushHistory(); state.counts.s = Math.min(2, state.counts.s + 1); render(); }
+    function decS(){ pushHistory(); state.counts.s = Math.max(0, state.counts.s - 1); render(); }
+    function incB(){ pushHistory(); state.counts.b = Math.min(3, state.counts.b + 1); render(); }
+    function decB(){ pushHistory(); state.counts.b = Math.max(0, state.counts.b - 1); render(); }
+    function incO(){ pushHistory(); state.counts.o = Math.min(2, state.counts.o + 1); if (state.counts.o === 2) {/* visual only */} render(); }
+    function decO(){ pushHistory(); state.counts.o = Math.max(0, state.counts.o - 1); render(); }
+
+    function nextBatter(idx){ pushHistory(); state.batIndex[idx] = (state.batIndex[idx] + 1) % 9; render(); }
+
+    function resetAll(){ if(!confirm('全てリセットしますか？')) return; pushHistory(); state = defaultState(); render(); }
+
+    // Save / Load
+    function saveLocal(){ localStorage.setItem('scoreboard-web-state', JSON.stringify(state)); alert('保存しました（ブラウザのローカル保存）'); }
+    function loadLocal(){ const s = localStorage.getItem('scoreboard-web-state'); if(s){ state = JSON.parse(s); render(); } else { alert('保存データがありません'); } }
+    function exportJSON(){
+      const blob = new Blob([JSON.stringify(state, null, 2)], {type:'application/json'});
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `score_${new Date().toISOString().slice(0,10)}.json`;
+      a.click(); URL.revokeObjectURL(a.href);
+    }
+    function importJSON(file){
+      const reader = new FileReader();
+      reader.onload = () => { try { state = JSON.parse(reader.result); render(); } catch(e){ alert('JSONの読み込みに失敗しました'); } };
+      reader.readAsText(file);
+    }
+
+    // ------------------ Bindings ------------------
+    document.getElementById('incRun').onclick = incRun;
+    document.getElementById('decRun').onclick = decRun;
+    document.getElementById('changeSide').onclick = changeSide;
+    document.getElementById('clearSB').onclick = clearSB;
+    document.getElementById('incS').onclick = incS; document.getElementById('decS').onclick = decS;
+    document.getElementById('incB').onclick = incB; document.getElementById('decB').onclick = decB;
+    document.getElementById('incO').onclick = incO; document.getElementById('decO').onclick = decO;
+
+    document.getElementById('nextTop').onclick = () => nextBatter(0);
+    document.getElementById('nextBottom').onclick = () => nextBatter(1);
+
+    document.getElementById('undoBtn').onclick = undo;
+    document.getElementById('resetBtn').onclick = resetAll;
+
+    document.getElementById('saveBtn').onclick = saveLocal;
+    document.getElementById('loadBtn').onclick = loadLocal;
+    document.getElementById('exportBtn').onclick = exportJSON;
+    document.getElementById('importBtn').onclick = () => document.getElementById('importFile').click();
+    document.getElementById('importFile').addEventListener('change', (e)=>{ const f=e.target.files[0]; if(f) importJSON(f); });
+
+    document.getElementById('team0').addEventListener('input', (e)=>{ state.teamNames[0]=e.target.value; render(); });
+    document.getElementById('team1').addEventListener('input', (e)=>{ state.teamNames[1]=e.target.value; render(); });
+    document.getElementById('attackToggle').addEventListener('change', render);
+    document.getElementById('firstAttack').addEventListener('change', (e)=>{ pushHistory(); state.firstAttack = +e.target.value; render(); });
+
+    // Initialize cells with zero display
+    document.querySelectorAll('.score-cell').forEach(td => td.textContent = '0');
+
+    // Try load state from localStorage at startup
+    try {
+      const saved = localStorage.getItem('scoreboard-web-state');
+      if (saved) state = JSON.parse(saved);
+    } catch {}
+
+    render();
+  </script>
+</body>
+</html>
